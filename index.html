@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoMinApp - Analyse Variographique</title>
+    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.min.js"></script>
+    <style>
+        :root {
+            --primary: #3a5a78;
+            --secondary: #4d7ea8;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --success: #28a745;
+            --warning: #ffc107;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2, h3 {
+            text-align: center;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .dashboard {
+                grid-template-columns: 300px 1fr;
+            }
+        }
+        
+        .control-panel, .visualization-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: var(--secondary);
+        }
+        
+        .visualization-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 15px;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab.active {
+            border-bottom: 2px solid var(--primary);
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .plot-container {
+            height: 500px;
+            width: 100%;
+        }
+        
+        .model-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .range-container {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .range-value {
+            text-align: center;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        
+        .data-preview {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            max-height: 100px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .model-type-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .model-btn {
+            text-align: center;
+            padding: 8px 5px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .model-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .stat-box {
+            background-color: var(--light);
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--dark);
+        }
+        
+        @media (max-width: 767px) {
+            .model-controls {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .stats-panel {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>GeoMinApp - Analyse Variographique</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="dashboard">
+            <div class="control-panel">
+                <h3>Données & Paramètres</h3>
+                
+                <div class="form-group">
+                    <label for="file-input">Charger un fichier de données (.csv)</label>
+                    <input type="file" id="file-input" accept=".csv">
+                </div>
+                
+                <div id="data-preview" class="data-preview">
+                    Aucune donnée chargée.
+                </div>
+                
+                <div class="form-group">
+                    <label>Colonnes</label>
+                    <div class="form-group">
+                        <label for="x-column">Colonne X</label>
+                        <select id="x-column" disabled>
+                            <option value="">Chargez un fichier</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="y-column">Colonne Y</label>
+                        <select id="y-column" disabled>
+                            <option value="">Chargez un fichier</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="z-column">Colonne Z</label>
+                        <select id="z-column" disabled>
+                            <option value="">Chargez un fichier</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="value-column">Colonne Valeur</label>
+                        <select id="value-column" disabled>
+                            <option value="">Chargez un fichier</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <h3>Paramètres du Variogramme</h3>
+                
+                <div class="form-group">
+                    <label for="lag-distance">Distance de lag (m)</label>
+                    <input type="number" id="lag-distance" value="5" min="0.1" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="num-lags">Nombre de lags</label>
+                    <input type="number" id="num-lags" value="10" min="1" step="1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="azimuth">Azimut (degrés)</label>
+                    <input type="number" id="azimuth" value="0" min="0" max="360" step="15">
+                </div>
+                
+                <div class="form-group">
+                    <label for="dip">Plongement (degrés)</label>
+                    <input type="number" id="dip" value="0" min="-90" max="90" step="15">
+                </div>
+                
+                <div class="form-group">
+                    <label for="tolerance">Tolérance angulaire (degrés)</label>
+                    <input type="number" id="tolerance" value="22.5" min="1" max="90" step="1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bandwidth">Bande passante (m)</label>
+                    <input type="number" id="bandwidth" value="10" min="1" step="1">
+                </div>
+                
+                <button id="calculate-btn" disabled>Calculer le Variogramme</button>
+                
+                <div id="log" class="log-container">
+                    Prêt à charger les données...
+                </div>
+            </div>
+            
+            <div class="visualization-panel">
+                <div class="tabs">
+                    <div class="tab active" data-tab="data-tab">Données</div>
+                    <div class="tab" data-tab="variogram-tab">Variogramme</div>
+                    <div class="tab" data-tab="model-tab">Modélisation</div>
+                </div>
+                
+                <div id="data-tab" class="tab-content active">
+                    <div id="data-plot" class="plot-container"></div>
+                    
+                    <div class="stats-panel">
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-count">-</div>
+                            <div class="stat-label">Nbre d'échantillons</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-min">-</div>
+                            <div class="stat-label">Minimum</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-max">-</div>
+                            <div class="stat-label">Maximum</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-mean">-</div>
+                            <div class="stat-label">Moyenne</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-variance">-</div>
+                            <div class="stat-label">Variance</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="variogram-tab" class="tab-content">
+                    <div id="variogram-plot" class="plot-container"></div>
+                </div>
+                
+                <div id="model-tab" class="tab-content">
+                    <div id="model-plot" class="plot-container"></div>
+                    
+                    <div class="model-type-container">
+                        <div class="model-btn active" data-model="spherical">Sphérique</div>
+                        <div class="model-btn" data-model="exponential">Exponentiel</div>
+                        <div class="model-btn" data-model="gaussian">Gaussien</div>
+                        <div class="model-btn" data-model="power">Puissance</div>
+                    </div>
+                    
+                    <div class="model-controls">
+                        <div class="form-group range-container">
+                            <label for="nugget-slider">Effet pépite</label>
+                            <input type="range" id="nugget-slider" min="0" max="100" value="10" step="1">
+                            <span class="range-value" id="nugget-value">10</span>
+                        </div>
+                        
+                        <div class="form-group range-container">
+                            <label for="sill-slider">Palier</label>
+                            <input type="range" id="sill-slider" min="0" max="100" value="90" step="1">
+                            <span class="range-value" id="sill-value">90</span>
+                        </div>
+                        
+                        <div class="form-group range-container">
+                            <label for="range-slider">Portée</label>
+                            <input type="range" id="range-slider" min="1" max="200" value="50" step="1">
+                            <span class="range-value" id="range-value">50</span>
+                        </div>
+                        
+                        <div class="form-group range-container" id="power-container" style="display: none;">
+                            <label for="power-slider">Exposant</label>
+                            <input type="range" id="power-slider" min="0.1" max="2" value="1.5" step="0.1">
+                            <span class="range-value" id="power-value">1.5</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Variables globales
+        let data = [];
+        let columnNames = [];
+        let variogramData = null;
+        let currentModelType = 'spherical';
+        
+        // Sélecteurs DOM
+        const fileInput = document.getElementById('file-input');
+        const dataPreview = document.getElementById('data-preview');
+        const xColumnSelect = document.getElementById('x-column');
+        const yColumnSelect = document.getElementById('y-column');
+        const zColumnSelect = document.getElementById('z-column');
+        const valueColumnSelect = document.getElementById('value-column');
+        const calculateBtn = document.getElementById('calculate-btn');
+        const logContainer = document.getElementById('log');
+        
+        // Sélecteurs des onglets
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // Modèle de variogramme
+        const nuggetSlider = document.getElementById('nugget-slider');
+        const sillSlider = document.getElementById('sill-slider');
+        const rangeSlider = document.getElementById('range-slider');
+        const powerSlider = document.getElementById('power-slider');
+        const nuggetValue = document.getElementById('nugget-value');
+        const sillValue = document.getElementById('sill-value');
+        const rangeValue = document.getElementById('range-value');
+        const powerValue = document.getElementById('power-value');
+        const modelBtns = document.querySelectorAll('.model-btn');
+        
+        // Initialisation des onglets
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // Gestion du chargement de fichier
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const csvData = event.target.result;
+                    parseCSV(csvData);
+                    log('Fichier chargé avec succès');
+                } catch (error) {
+                    log('Erreur lors du chargement du fichier: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+        
+        // Sélection du modèle de variogramme
+        modelBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modelBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentModelType = btn.dataset.model;
+                
+                // Afficher/masquer le contrôle de puissance pour le modèle power
+                if (currentModelType === 'power') {
+                    document.getElementById('power-container').style.display = 'block';
+                } else {
+                    document.getElementById('power-container').style.display = 'none';
+                }
+                
+                updateModelPlot();
+            });
+        });
+        
+        // Sliders du modèle
+        [nuggetSlider, sillSlider, rangeSlider, powerSlider].forEach(slider => {
+            slider.addEventListener('input', function() {
+                updateModelValue(this.id, this.value);
+                updateModelPlot();
+            });
+        });
+        
+        // Mise à jour des valeurs affichées des sliders
+        function updateModelValue(sliderId, value) {
+            switch (sliderId) {
+                case 'nugget-slider':
+                    nuggetValue.textContent = value;
+                    break;
+                case 'sill-slider':
+                    sillValue.textContent = value;
+                    break;
+                case 'range-slider':
+                    rangeValue.textContent = value;
+                    break;
+                case 'power-slider':
+                    powerValue.textContent = value;
+                    break;
+            }
+        }
+        
+        // Calcul du variogramme
+        calculateBtn.addEventListener('click', function() {
+            try {
+                if (data.length === 0) {
+                    throw new Error('Aucune donnée chargée');
+                }
+                
+                const xCol = xColumnSelect.value;
+                const yCol = yColumnSelect.value;
+                const zCol = zColumnSelect.value;
+                const valueCol = valueColumnSelect.value;
+                
+                if (!xCol || !yCol || !zCol || !valueCol) {
+                    throw new Error('Veuillez sélectionner toutes les colonnes nécessaires');
+                }
+                
+                const lagDistance = parseFloat(document.getElementById('lag-distance').value);
+                const numLags = parseInt(document.getElementById('num-lags').value);
+                const azimuth = parseFloat(document.getElementById('azimuth').value);
+                const dip = parseFloat(document.getElementById('dip').value);
+                const tolerance = parseFloat(document.getElementById('tolerance').value);
+                const bandwidth = parseFloat(document.getElementById('bandwidth').value);
+                
+                log('Calcul du variogramme...');
+                
+                // Calcul du variogramme expérimental
+                variogramData = calculateExperimentalVariogram(
+                    data, xCol, yCol, zCol, valueCol, 
+                    lagDistance, numLags, azimuth, dip, tolerance, bandwidth
+                );
+                
+                log('Variogramme calculé avec succès');
+                
+                // Mise à jour des graphiques
+                plotVariogram();
+                updateModelPlot();
+                
+                // Changer d'onglet automatiquement
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                document.querySelector('[data-tab="variogram-tab"]').classList.add('active');
+                document.getElementById('variogram-tab').classList.add('active');
+                
+            } catch (error) {
+                log('Erreur lors du calcul du variogramme: ' + error.message);
+            }
+        });
+        
+        // Fonction pour analyser le CSV
+        function parseCSV(csv) {
+            const lines = csv.split('\n');
+            if (lines.length < 2) {
+                throw new Error('Le fichier CSV doit contenir au moins un en-tête et une ligne de données');
+            }
+            
+            // Analyser l'en-tête
+            const header = lines[0].split(',').map(h => h.trim());
+            columnNames = header;
+            
+            // Analyser les données
+            data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const values = line.split(',').map(v => v.trim());
+                    if (values.length === header.length) {
+                        const row = {};
+                        header.forEach((col, index) => {
+                            row[col] = isNaN(values[index]) ? values[index] : parseFloat(values[index]);
+                        });
+                        data.push(row);
+                    }
+                }
+            }
+            
+            // Mettre à jour l'aperçu des données
+            updateDataPreview();
+            
+            // Remplir les sélecteurs de colonnes
+            populateColumnSelectors();
+            
+            // Initialiser l'affichage
+            plot3DScatter();
+            updateStats();
+            
+            // Activer le bouton de calcul
+            calculateBtn.disabled = false;
+        }
+        
+        // Mettre à jour l'aperçu des données
+        function updateDataPreview() {
+            if (data.length === 0) {
+                dataPreview.textContent = 'Aucune donnée chargée.';
+                return;
+            }
+            
+            // Afficher les 5 premières lignes
+            let preview = '';
+            const headers = Object.keys(data[0]).join(', ');
+            preview += headers + '\n';
+            
+            for (let i = 0; i < Math.min(5, data.length); i++) {
+                const values = Object.values(data[i]).join(', ');
+                preview += values + '\n';
+            }
+            
+            if (data.length > 5) {
+                preview += `...et ${data.length - 5} autres lignes`;
+            }
+            
+            dataPreview.textContent = preview;
+        }
+        
+        // Remplir les sélecteurs de colonnes
+        function populateColumnSelectors() {
+            [xColumnSelect, yColumnSelect, zColumnSelect, valueColumnSelect].forEach(select => {
+                select.innerHTML = '';
+                select.disabled = false;
+                
+                // Option vide
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = 'Sélectionner...';
+                select.appendChild(emptyOption);
+                
+                // Options de colonnes
+                columnNames.forEach(col => {
+                    const option = document.createElement('option');
+                    option.value = col;
+                    option.textContent = col;
+                    select.appendChild(option);
+                });
+            });
+            
+            // Essayez de deviner automatiquement les colonnes
+            columnNames.forEach(col => {
+                const colLower = col.toLowerCase();
+                if (colLower === 'x' || colLower.includes('east')) {
+                    xColumnSelect.value = col;
+                } else if (colLower === 'y' || colLower.includes('north')) {
+                    yColumnSelect.value = col;
+                } else if (colLower === 'z' || colLower.includes('elev')) {
+                    zColumnSelect.value = col;
+                } else if (colLower.includes('grade') || colLower.includes('teneur') || colLower.includes('val')) {
+                    valueColumnSelect.value = col;
+                }
+            });
+        }
+        
+        // Fonction pour afficher les données en 3D
+        function plot3DScatter() {
+            if (data.length === 0) return;
+            
+            const xCol = xColumnSelect.value || Object.keys(data[0])[0];
+            const yCol = yColumnSelect.value || Object.keys(data[0])[1];
+            const zCol = zColumnSelect.value || Object.keys(data[0])[2];
+            const valueCol = valueColumnSelect.value || Object.keys(data[0])[3];
+            
+            const x = data.map(d => d[xCol]);
+            const y = data.map(d => d[yCol]);
+            const z = data.map(d => d[zCol]);
+            const values = data.map(d => d[valueCol]);
+            
+            const trace = {
+                x: x,
+                y: y,
+                z: z,
+                mode: 'markers',
+                marker: {
+                    size: 4,
+                    color: values,
+                    colorscale: 'Viridis',
+                    colorbar: {
+                        title: valueCol
+                    }
+                },
+                type: 'scatter3d'
+            };
+            
+            const layout = {
+                title: 'Visualisation 3D des données',
+                scene: {
+                    xaxis: { title: xCol },
+                    yaxis: { title: yCol },
+                    zaxis: { title: zCol }
+                },
+                margin: { l: 0, r: 0, b: 0, t: 30 }
+            };
+            
+            Plotly.newPlot('data-plot', [trace], layout);
+        }
+        
+        // Mise à jour des statistiques
+        function updateStats() {
+            if (data.length === 0 || !valueColumnSelect.value) return;
+            
+            const valueCol = valueColumnSelect.value;
+            const values = data.map(d => d[valueCol]).filter(v => !isNaN(v));
+            
+            if (values.length === 0) return;
+            
+            const count = values.length;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const sum = values.reduce((a, b) => a + b, 0);
+            const mean = sum / count;
+            
+            // Calcul de la variance
+            const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / count;
+            
+            // Mise à jour des éléments
+            document.getElementById('stat-count').textContent = count;
+            document.getElementById('stat-min').textContent = min.toFixed(3);
+            document.getElementById('stat-max').textContent = max.toFixed(3);
+            document.getElementById('stat-mean').textContent = mean.toFixed(3);
+            document.getElementById('stat-variance').textContent = variance.toFixed(3);
+        }
+        
+        // Fonction pour calculer le variogramme expérimental
+        function calculateExperimentalVariogram(data, xCol, yCol, zCol, valueCol, lagDistance, numLags, azimuth, dip, tolerance, bandwidth) {
+            // Conversion des angles en radians
+            const azimuthRad = (azimuth * Math.PI) / 180;
+            const dipRad = (dip * Math.PI) / 180;
+            const toleranceRad = (tolerance * Math.PI) / 180;
+            
+            // Calcul des vecteurs de direction
+            const dx = Math.cos(azimuthRad) * Math.cos(dipRad);
+            const dy = Math.sin(azimuthRad) * Math.cos(dipRad);
+            const dz = Math.sin(dipRad);
+            
+            // Structure pour stocker les résultats
+            const variogram = {
+                distances: [],
+                variances: [],
+                pairs: [],
+                direction: { azimuth, dip },
+                lagParams: { lagDistance, numLags, tolerance, bandwidth }
+            };
+            
+            // Initialisation des compteurs pour chaque lag
+            for (let lag = 0; lag < numLags; lag++) {
+                variogram.distances.push((lag + 0.5) * lagDistance);
+                variogram.variances.push(0);
+                variogram.pairs.push(0);
+            }
+            
+            // Calcul de la variance totale (pour normalisation)
+            const values = data.map(d => d[valueCol]);
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const totalVariance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+            
+            // Parcourir toutes les paires de points
+            for (let i = 0; i < data.length; i++) {
+                for (let j = i + 1; j < data.length; j++) {
+                    // Calcul du vecteur entre les points
+                    const hx = data[j][xCol] - data[i][xCol];
+                    const hy = data[j][yCol] - data[i][yCol];
+                    const hz = data[j][zCol] - data[i][zCol];
+                    
+                    // Longueur du vecteur (distance euclidienne)
+                    const distance = Math.sqrt(hx*hx + hy*hy + hz*hz);
+                    
+                    // Projection sur la direction
+                    const proj = hx*dx + hy*dy + hz*dz;
+                    const projDistance = Math.abs(proj);
+                    
+                    // Calcul de l'angle entre le vecteur et la direction
+                    const dotProduct = (hx*dx + hy*dy + hz*dz) / distance;
+                    const angle = Math.acos(Math.min(Math.max(dotProduct, -1), 1));
+                    
+                    // Vérifier si la paire est dans la direction et la tolérance
+                    if (angle <= toleranceRad) {
+                        // Calcul de la distance perpendiculaire (bande passante)
+                        const perpDistance = Math.sqrt(distance*distance - proj*proj);
+                        
+                        if (perpDistance <= bandwidth) {
+                            // Déterminer le lag
+                            const lagIndex = Math.floor(projDistance / lagDistance);
+                            
+                            if (lagIndex < numLags) {
+                                // Calcul de la semi-variance
+                                const value1 = data[i][valueCol];
+                                const value2 = data[j][valueCol];
+                                const semiVariance = Math.pow(value1 - value2, 2) / 2;
+                                
+                                // Ajouter au variogramme
+                                variogram.variances[lagIndex] += semiVariance;
+                                variogram.pairs[lagIndex]++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Calcul des moyennes et normalisation
+            for (let i = 0; i < numLags; i++) {
+                if (variogram.pairs[i] > 0) {
+                    variogram.variances[i] /= variogram.pairs[i];
+                } else {
+                    variogram.variances[i] = NaN;
+                }
+            }
+            
+            // Ajouter la variance totale
+            variogram.totalVariance = totalVariance;
+            
+            return variogram;
+        }
+        
+        // Fonction pour tracer le variogramme expérimental
+        function plotVariogram() {
+            if (!variogramData) return;
+            
+            // Filtrer les points sans paires
+            const validIndices = variogramData.pairs.map((p, i) => p > 0 ? i : -1).filter(i => i >= 0);
+            const distances = validIndices.map(i => variogramData.distances[i]);
+            const variances = validIndices.map(i => variogramData.variances[i]);
+            const pairs = validIndices.map(i => variogramData.pairs[i]);
+            
+            // Trace pour le variogramme
+            const trace = {
+                x: distances,
+                y: variances,
+                mode: 'markers+lines',
+                marker: {
+                    size: pairs.map(p => Math.max(5, Math.min(15, Math.sqrt(p)))),
+                    color: pairs,
+                    colorscale: 'Viridis',
+                    colorbar: {
+                        title: 'Nombre de paires'
+                    }
+                },
+                line: {
+                    dash: 'dot',
+                    width: 1
+                },
+                name: 'Variogramme expérimental'
+            };
+            
+            // Ligne horizontale pour la variance totale
+            const varianceLine = {
+                x: [0, Math.max(...distances) * 1.1],
+                y: [variogramData.totalVariance, variogramData.totalVariance],
+                mode: 'lines',
+                line: {
+                    dash: 'dash',
+                    width: 1,
+                    color: 'red'
+                },
+                name: 'Variance totale'
+            };
+            
+            const layout = {
+                title: `Variogramme Expérimental (Azimut: ${variogramData.direction.azimuth}°, Plongement: ${variogramData.direction.dip}°)`,
+                xaxis: { 
+                    title: 'Distance (m)',
+                    range: [0, Math.max(...distances) * 1.1]
+                },
+                yaxis: { 
+                    title: 'Semi-variance',
+                    range: [0, variogramData.totalVariance * 1.2]
+                },
+                legend: {
+                    x: 0.7,
+                    y: 0.1
+                }
+            };
+            
+            Plotly.newPlot('variogram-plot', [trace, varianceLine], layout);
+        }
+        
+        // Fonction pour mettre à jour le graphique du modèle
+        function updateModelPlot() {
+            if (!variogramData) return;
+            
+            // Filtrer les points sans paires
+            const validIndices = variogramData.pairs.map((p, i) => p > 0 ? i : -1).filter(i => i >= 0);
+            const distances = validIndices.map(i => variogramData.distances[i]);
+            const variances = validIndices.map(i => variogramData.variances[i]);
+            const pairs = validIndices.map(i => variogramData.pairs[i]);
+            
+            // Trace pour le variogramme expérimental
+            const experimentalTrace = {
+                x: distances,
+                y: variances,
+                mode: 'markers',
+                marker: {
+                    size: pairs.map(p => Math.max(5, Math.min(15, Math.sqrt(p)))),
+                    color: pairs,
+                    colorscale: 'Viridis',
+                    colorbar: {
+                        title: 'Nombre de paires'
+                    }
+                },
+                name: 'Variogramme expérimental'
+            };
+            
+            // Paramètres du modèle
+            const nugget = parseFloat(nuggetSlider.value) / 100 * variogramData.totalVariance;
+            const sill = parseFloat(sillSlider.value) / 100 * variogramData.totalVariance;
+            const range = parseFloat(rangeSlider.value);
+            const power = parseFloat(powerSlider.value);
+            
+            // Générer des points pour le modèle
+            const modelX = [];
+            const maxDistance = Math.max(...distances) * 1.1;
+            const step = maxDistance / 100;
+            
+            for (let dist = 0; dist <= maxDistance; dist += step) {
+                modelX.push(dist);
+            }
+            
+            const modelY = modelX.map(dist => {
+                return nugget + variogramModel(dist, sill, range, currentModelType, power);
+            });
+            
+            // Trace pour le modèle
+            const modelTrace = {
+                x: modelX,
+                y: modelY,
+                mode: 'lines',
+                line: {
+                    width: 2,
+                    color: 'rgba(255, 0, 0, 0.7)'
+                },
+                name: `Modèle ${currentModelType}`
+            };
+            
+            // Ligne horizontale pour la variance totale
+            const varianceLine = {
+                x: [0, maxDistance],
+                y: [variogramData.totalVariance, variogramData.totalVariance],
+                mode: 'lines',
+                line: {
+                    dash: 'dash',
+                    width: 1,
+                    color: 'gray'
+                },
+                name: 'Variance totale'
+            };
+            
+            const layout = {
+                title: 'Modélisation du Variogramme',
+                xaxis: { 
+                    title: 'Distance (m)',
+                    range: [0, maxDistance]
+                },
+                yaxis: { 
+                    title: 'Semi-variance',
+                    range: [0, variogramData.totalVariance * 1.2]
+                },
+                legend: {
+                    x: 0.7,
+                    y: 0.1
+                }
+            };
+            
+            Plotly.newPlot('model-plot', [experimentalTrace, modelTrace, varianceLine], layout);
+        }
+        
+        // Fonction pour calculer la valeur du modèle de variogramme
+        function variogramModel(distance, sill, range, type, power) {
+            if (distance === 0) return 0;
+            
+            switch (type) {
+                case 'spherical':
+                    if (distance >= range) return sill;
+                    return sill * (1.5 * (distance / range) - 0.5 * Math.pow(distance / range, 3));
+                    
+                case 'exponential':
+                    return sill * (1 - Math.exp(-3 * distance / range));
+                    
+                case 'gaussian':
+                    return sill * (1 - Math.exp(-3 * Math.pow(distance / range, 2)));
+                    
+                case 'power':
+                    // Le modèle de puissance n'a pas de palier
+                    return sill * Math.pow(distance / range, power);
+                    
+                default:
+                    return 0;
+            }
+        }
+        
+        // Fonction pour ajouter des messages au log
+        function log(message) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            const logMessage = `[${timeString}] ${message}`;
+            
+            logContainer.innerHTML += logMessage + '<br>';
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Initialisation
+        log('Application prête. Veuillez charger un fichier CSV.');
+    </script>
+</body>
+</html>
